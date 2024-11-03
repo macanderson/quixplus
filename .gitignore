@@ -9,3 +9,5 @@
 *.log
 dist
 build
+.python-version
+uv.lock
