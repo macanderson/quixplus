@@ -1,16 +1,16 @@
 """
 WebsocketSource
 
-for use with quixstreams library
+for use with quixstreams library.
 
-requires: quixstreams, websocket-client
+Requires: quixstreams, websocket-client.
 
 This module provides a WebsocketSource class that connects to a WebSocket,
 receives data, and sends it to a Kafka topic using the quixstreams library.
 """
-
 import json
 import logging
+import os
 import sys
 import threading
 import time
@@ -18,6 +18,7 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import websocket
 from quixstreams.checkpointing.exceptions import CheckpointProducerTimeout  # noqa: E501
+from quixstreams.kafka.configuration import ConnectionConfig
 from quixstreams.models import (  # import models for type annotations
     Headers,
     MessageKey,
@@ -83,7 +84,6 @@ class WebsocketSource(BaseSource):
             key_serializer (Callable): Function to serialize the message key.
             value_serializer (Callable): Function to serialize the message
                 value.
-            key_field (Optional[str]): Field to use as the message key.
             timestamp_field (Optional[str]): Field to use as the
                 message timestamp.
             auth_payload (Optional[dict]): Payload for WebSocket
@@ -92,31 +92,46 @@ class WebsocketSource(BaseSource):
                 subscription.
             reconnect_delay (int): Delay before reconnecting to the WebSocket.
             shutdown_timeout (int): Timeout for graceful shutdown.
+            key_field (str): The key field to use for the message key.
+            header_fields (dict): The header fields to use for the message headers.
+            value_fields (list): The value fields to use for the message value.
 
         Examples:
-            >>> ws_source = WebsocketSource(
-            ...     topic_name="example_topic",
-            ...     ws_url="wss://example.com/socket",
-            ...     transform=lambda x: json.loads(x),
-            ...     validator=lambda x: "key" in x,
-            ...     key_field="key",
-            ...     timestamp_field="timestamp"
-            ... )
+            ws_source = WebsocketSource(
+                topic_name="example_topic",
+                ws_url="wss://example.com/socket",
+                transform=lambda x: json.loads(x),
+                validator=lambda x: "key" in x,
+                key_field=None,
+                header_fields: List[str] | None = None,
+                value_fields=["*"],
+                timestamp_field="timestamp"
+            )
         """
         super().__init__()
-        self.topic_name = topic_name
-        self.ws_url = ws_url
-        self.transform = transform
-        self.validator = validator or (lambda x: True)  # Default to always true if not provided
-        self.key_serializer = key_serializer
-        self.value_serializer = value_serializer
-        self.key_field = key_field
-        self.timestamp_field = timestamp_field
-        self.auth_payload = auth_payload
-        self.subscribe_payload = subscribe_payload
-        self.reconnect_delay = reconnect_delay
-        self.shutdown_timeout = shutdown_timeout
-        self._running = False
+        self.topic_name: str = topic_name
+        self.ws_url: str = ws_url
+        self.transform: Callable[[str], dict] = transform
+        self.validator: Callable[[str], bool] = validator or (lambda x: True)
+        self.key_serializer: Callable = key_serializer
+        self.value_serializer: Callable = value_serializer
+        self.key_field: str | None = key_field
+        self.timestamp_field: str | None = timestamp_field
+        self.auth_payload: dict | None = auth_payload
+        self.subscribe_payload: dict | None = subscribe_payload
+        self.reconnect_delay: int = reconnect_delay
+        self.shutdown_timeout: int = shutdown_timeout
+        self._running: bool = False
+        self.header_fields: List[str] | None = None
+        self.value_fields: List[str] | None = None
+        self.key_fields: List[str] | None = None
+        self._include_all_fields: bool = True
+        self.connection = ConnectionConfig(
+            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS"),
+            sasl_mechanism="PLAIN",
+            sasl_plain_username=os.getenv("KAFKA_USERNAME"),
+            sasl_plain_password=os.getenv("KAFKA_PASSWORD"),
+            )
 
     def start(self):
         """
@@ -226,8 +241,10 @@ class WebsocketSource(BaseSource):
 
             # Pass validated message to the transform function
             record_value = self.transform(data)
-            record_timestamp = record_value.get(self.timestamp_field, int(time.time() * 1000))
-            record_key = record_value.get(self.key_field) if self.key_field else None
+            record_timestamp: int = record_value.get(self.timestamp_field, int(time.time() * 1000))
+            record_key = ""
+            for s in self.key_fields:
+                record_key += f"[{record_value.get(s)}]"
             self.produce(
                 key=record_key,
                 value=record_value,
@@ -317,6 +334,7 @@ class WebsocketSource(BaseSource):
             serialized_key = (
                 self.key_serializer(key).encode("utf-8") if key is not None else None  # noqa: E501
             )
+            self._producer.broker_address = self.connection
             self._producer.produce(
                 topic=self.topic_name,
                 headers=headers,

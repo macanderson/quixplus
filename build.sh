@@ -5,23 +5,20 @@ set -e
 
 # Default version bump to patch
 version_bump="patch"
-
+echo "Defaulting to patch version bump"
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --username) username="$2"; shift ;;
-        --password) password="$2"; shift ;;
+        --username) PYPI_USERNAME="$2"; shift ;;
+        --password) PYPI_TOKEN="$2"; shift ;;
         --major) version_bump="major" ;;
         --minor) version_bump="minor" ;;
     esac
     shift
 done
 
-# Check if username and password were provided
-if [[ -z "$username" || -z "$password" ]]; then
-    echo "Error: --username and --password are required."
-    exit 1
-fi
+echo "Username: $PYPI_USERNAME"
+echo "Password: $PYPI_TOKEN"
 
 # Function to bump version in pyproject.toml
 bump_version() {
@@ -51,12 +48,18 @@ bump_version() {
 
 # Bump the version
 bump_version
+echo "Bumped version to $new_version"
 
 # Build and publish
 uv build
-uv publish --username "$username" --password "$password"
+echo "Building with version $new_version"
+uv publish --username $PYPI_USERNAME --password $PYPI_TOKEN
 
 # Clean up dist directory
 rm -rf dist
+echo "Cleaned up dist directory"
 
 echo "Build and publish process completed successfully with version $new_version"
+
+
+
