@@ -1,7 +1,7 @@
 [project]
 name = "quixplus"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "Quixplus is a Python library for building sources and sinksfor Quix Streams."
 readme = "README.md"
 authors = [
     { name = "Mac Anderson", email = "mac@macanderson.com" }
@@ -21,3 +21,6 @@ dependencies = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.universe.scripts]
+release = "bash ./build.sh --username $PYPY_USERNAME --password $PYPY_TOKEN {{args}}"

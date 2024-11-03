@@ -1,11 +1,11 @@
 """
-WebSocketSource
+WebsocketSource
 
 for use with quixstreams library
 
 requires: quixstreams, websocket-client
 
-This module provides a WebSocketSource class that connects to a WebSocket,
+This module provides a WebsocketSource class that connects to a WebSocket,
 receives data, and sends it to a Kafka topic using the quixstreams library.
 """
 
@@ -35,7 +35,7 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
 
-class WebSocketSource(BaseSource):
+class WebsocketSource(BaseSource):
     """
     WebSocket-based source class for receiving data from a WebSocket and sending it to a Kafka topic.
 
@@ -52,7 +52,7 @@ class WebSocketSource(BaseSource):
         subscribe_payload (Optional[dict]): Payload for WebSocket subscription.
         reconnect_delay (int): Delay before reconnecting to the WebSocket.
         shutdown_timeout (int): Timeout for graceful shutdown.
-        _running (bool): Indicates if the WebSocketSource is running.
+        _running (bool): Indicates if the WebsocketSource is running.
     """
 
     def __init__(
@@ -71,7 +71,7 @@ class WebSocketSource(BaseSource):
         shutdown_timeout: int = 10,
     ):
         """
-        Initialize the WebSocketSource.
+        Initialize the WebsocketSource.
 
         Args:
             topic_name (str): The name of the Kafka topic.
@@ -94,7 +94,7 @@ class WebSocketSource(BaseSource):
             shutdown_timeout (int): Timeout for graceful shutdown.
 
         Examples:
-            >>> ws_source = WebSocketSource(
+            >>> ws_source = WebsocketSource(
             ...     topic_name="example_topic",
             ...     ws_url="wss://example.com/socket",
             ...     transform=lambda x: json.loads(x),
@@ -120,7 +120,7 @@ class WebSocketSource(BaseSource):
 
     def start(self):
         """
-        Start the WebSocketSource by connecting to the WebSocket.
+        Start the WebsocketSource by connecting to the WebSocket.
 
         Raises:
             Exception: If the connection to the WebSocket fails.
@@ -138,9 +138,9 @@ class WebSocketSource(BaseSource):
 
     def stop(self):
         """
-        Stop the WebSocketSource and close the WebSocket connection.
+        Stop the WebsocketSource and close the WebSocket connection.
         """
-        logger.info("Stopping WebSocketSource...")
+        logger.info("Stopping WebsocketSource...")
         super().stop()
         self.flush(self.shutdown_timeout)
         self._running = False
@@ -149,7 +149,7 @@ class WebSocketSource(BaseSource):
 
     def cleanup(self, failed: bool) -> None:
         """
-        Cleanup resources after stopping the WebSocketSource.
+        Cleanup resources after stopping the WebsocketSource.
 
         Args:
             failed (bool): Indicates if the cleanup is due to a failure.
@@ -331,4 +331,4 @@ class WebSocketSource(BaseSource):
             logger.error(f"Failed to produce record: {e}")
 
 
-__all__ = ["WebSocketSource"]
+__all__ = ["WebsocketSource"]
