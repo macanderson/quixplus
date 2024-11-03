@@ -1,6 +1,6 @@
 [project]
 name = "quixplus"
-version = "0.1.7"
+version = "0.1.9"
 description = "Quixplus is a Python library for building sources and sinksfor Quix Streams."
 readme = "README.md"
 authors = [
