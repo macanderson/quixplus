@@ -1,3 +1,5 @@
+# flake8: noqa: E501
+# noqa: E501
 """
 WebsocketSource
 
@@ -17,7 +19,7 @@ import time
 from typing import Any, Callable, List, Optional, Tuple
 
 import websocket
-from quixstreams.checkpointing.exceptions import CheckpointProducerTimeout  # noqa: E501
+from dotenv import load_dotenv
 from quixstreams.kafka.configuration import ConnectionConfig
 from quixstreams.models import (  # import models for type annotations
     Headers,
@@ -28,12 +30,18 @@ from quixstreams.models import (  # import models for type annotations
 )
 from quixstreams.sources.base.source import BaseSource
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
+
+
+# producer = KafkaProducer(bootstrap_servers='localhost:1234')
+from quixstreams.checkpointing.exceptions import CheckpointProducerTimeout  # noqa: E501
 
 
 class WebsocketSource(BaseSource):
@@ -70,6 +78,7 @@ class WebsocketSource(BaseSource):
         subscribe_payload: Optional[dict] = None,
         reconnect_delay: int = 2,
         shutdown_timeout: int = 10,
+        debug: bool = False,
     ):
         """
         Initialize the WebsocketSource.
@@ -77,24 +86,22 @@ class WebsocketSource(BaseSource):
         Args:
             topic_name (str): The name of the Kafka topic.
             ws_url (str): The WebSocket URL to connect to.
-            transform (Callable[[str], dict]): Function to transform the
-                received message.
-            validator (Optional[Callable[[str], bool]]): Function to validate
-                the received message.
+            transform (Callable[[str], dict]): Function to transform the received message.
+            validator (Optional[Callable[[str], bool]]): Function to validate the received message.
             key_serializer (Callable): Function to serialize the message key.
-            value_serializer (Callable): Function to serialize the message
-                value.
-            timestamp_field (Optional[str]): Field to use as the
-                message timestamp.
-            auth_payload (Optional[dict]): Payload for WebSocket
-                authentication.
-            subscribe_payload (Optional[dict]): Payload for WebSocket
-                subscription.
+            value_serializer (Callable): Function to serialize the message value.
+            key_field (Optional[str]): Field to use as the message key.
+            timestamp_field (Optional[str]): Field to use as the message timestamp.
+            auth_payload (Optional[dict]): Payload for WebSocket authentication.
+            subscribe_payload (Optional[dict]): Payload for WebSocket subscription.
             reconnect_delay (int): Delay before reconnecting to the WebSocket.
             shutdown_timeout (int): Timeout for graceful shutdown.
-            key_field (str): The key field to use for the message key.
-            header_fields (dict): The header fields to use for the message headers.
-            value_fields (list): The value fields to use for the message value.
+            header_fields (Optional[dict]): The header fields to use for the message headers.
+            value_fields (Optional[list]): The value fields to use for the message value.
+            key_fields (Optional[list]): The key fields to use for the message key.
+            _include_all_fields (bool): Flag to include all fields in the message.
+            _message_counter (int): Counter for the number of messages processed.
+            debug (bool): Flag to enable debug mode.
 
         Examples:
             ws_source = WebsocketSource(
@@ -103,7 +110,7 @@ class WebsocketSource(BaseSource):
                 transform=lambda x: json.loads(x),
                 validator=lambda x: "key" in x,
                 key_field=None,
-                header_fields: List[str] | None = None,
+                header_fields=None,
                 value_fields=["*"],
                 timestamp_field="timestamp"
             )
@@ -111,7 +118,7 @@ class WebsocketSource(BaseSource):
         super().__init__()
         self.topic_name: str = topic_name
         self.ws_url: str = ws_url
-        self.transform: Callable[[str], dict] = transform
+        self.transform: Callable[[str], dict] = transform or (lambda x: x)
         self.validator: Callable[[str], bool] = validator or (lambda x: True)
         self.key_serializer: Callable = key_serializer
         self.value_serializer: Callable = value_serializer
@@ -126,12 +133,15 @@ class WebsocketSource(BaseSource):
         self.value_fields: List[str] | None = None
         self.key_fields: List[str] | None = None
         self._include_all_fields: bool = True
+        self._message_counter: int = 0
+        self.debug: bool = False
         self.connection = ConnectionConfig(
-            bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS"),
-            sasl_mechanism="PLAIN",
-            sasl_plain_username=os.getenv("KAFKA_USERNAME"),
-            sasl_plain_password=os.getenv("KAFKA_PASSWORD"),
-            )
+            bootstrap_servers=os.getenv("BOOTSTRAP_SERVERS"),
+            sasl_mechanism=os.getenv("SASL_MECHANISM"),
+            security_protocol=os.getenv("SECURITY_PROTOCOL"),
+            sasl_username=os.getenv("SASL_USERNAME"),
+            sasl_password=os.getenv("SASL_PASSWORD"),
+        )
 
     def start(self):
         """
@@ -235,6 +245,9 @@ class WebsocketSource(BaseSource):
         """
         try:
             # Validate message
+            self._message_counter += 1
+            if self.debug:
+                print(f"Message {self._message_counter}: {data}")
             if not self.validator(data):
                 logger.debug("Message ignored by validator.")
                 return  # Skip processing if the message fails validation
@@ -335,6 +348,9 @@ class WebsocketSource(BaseSource):
                 self.key_serializer(key).encode("utf-8") if key is not None else None  # noqa: E501
             )
             self._producer.broker_address = self.connection
+            print(self._producer.broker_address)
+            print(self.connection)
+            print("in produce")
             self._producer.produce(
                 topic=self.topic_name,
                 headers=headers,
