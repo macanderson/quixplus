@@ -116,7 +116,7 @@ class WebsocketSource(BaseSource):
         self.name: str = name
         self.ws_url: str = ws_url
         self.transform: Callable[[str], dict] = transform or (lambda x: x)
-        self.validator: Callable[[str], bool] = validator or (lambda x: True)
+        self.validator: Callable[[str], bool] = validator or (lambda _: True)
         self.key_serializer: Callable = key_serializer
         self.value_serializer: Callable = value_serializer
         self.key_field: str | None = key_field
@@ -221,9 +221,6 @@ class WebsocketSource(BaseSource):
     def _extract_timestamp(
         self,
         value: Any,
-        headers: Optional[List[Tuple[str, bytes]]],
-        timestamp: float,
-        timestamp_type: TimestampType,
     ) -> int:
         """
         Extract the timestamp from the message value.
@@ -246,7 +243,7 @@ class WebsocketSource(BaseSource):
     def _on_message(self, ws: websocket.WebSocketApp, data: str):
         """
         Handle incoming WebSocket messages.
-
+    def _on_message(self, _: websocket.WebSocketApp, data: str):
         Args:
             ws (websocket.WebSocketApp): The WebSocket application instance.
             data (str): The received message data.
@@ -268,53 +265,32 @@ class WebsocketSource(BaseSource):
         except Exception as e:
             logger.error(f"Failed to process data: {e}")
 
-        def _process_record(self, record_value: dict):
-            """
-            Process a single record value.
+    def _process_record(self, record_value: dict):
+        """
+        Process a single record value.
 
-            Args:
-                record_value (dict): The record value to process.
-            """
-            # Validate message
-            logger.debug("Processing message...")
-            self._message_counter += 1
-            logger.debug(f"Received {self._message_counter} message: {record_value}")
-            if self.debug:
-                logger.debug(f"Message {self._message_counter}: {record_value}")
+        Args:
+            record_value (dict): The record value to process.
+        """
+        # Validate message
+        logger.debug("Processing message...")
+        self._message_counter += 1
+        logger.debug(f"Received {self._message_counter} message: {record_value}")
+        if self.debug:
+            logger.debug(f"Message {self._message_counter}: {record_value}")
 
-            record_timestamp: int = record_value.get(self.timestamp_field, int(time.time() * 1000))
-            record_key = ""
-            if self.key_fields:
-                for s in self.key_fields:
-                    record_key += f"{record_value.get(s)} "
-            record_key = record_key.strip()
-            logger.debug(f"Record key: {record_key}")
-            self.produce(
-                key=record_key,
-                value=record_value,
-                timestamp=record_timestamp,
-            )
-
-            # Pass validated message to the transform function
-            record_value = self.transform(data)
-            if isinstance(record_value, dict):
-                record_timestamp: int = record_value.get(self.timestamp_field, int(time.time() * 1000))
-                record_key = ""
-                for s in self.key_fields:
-                    record_key += f"{record_value.get(s)} "
-            else:
-                logger.error("Transformed record is not a dictionary.")
-                return
-            # remove trailing space
-            record_key = record_key.strip()
-            logger.debug(f"Record key: {record_key}")
-            self.produce(
-                key=record_key,
-                value=record_value,
-                timestamp=record_timestamp,
-            )
-        except Exception as e:
-            logger.error(f"Failed to process data: {e}")
+        record_timestamp: int = record_value.get(self.timestamp_field, int(time.time() * 1000))
+        record_key = ""
+        if self.key_fields:
+            for s in self.key_fields:
+                record_key += f"{record_value.get(s)} "
+        record_key = record_key.strip()
+        logger.debug(f"Record key: {record_key}")
+        self.produce(
+            key=record_key,
+            value=record_value,
+            timestamp=record_timestamp,
+        )
 
     def _connect_to_websocket(self):
         """
@@ -341,7 +317,7 @@ class WebsocketSource(BaseSource):
         def on_error(ws: websocket.WebSocketApp, error: str):
             """
             Handle WebSocket error event.
-
+        def on_error(_: websocket.WebSocketApp, error: str):
             Args:
                 ws (websocket.WebSocketApp): The WebSocket application instance.  # noqa: E501
                 error (str): The error message.
