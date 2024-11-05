@@ -372,12 +372,10 @@ class WebsocketSource(BaseSource):
         """
         try:
             serialized_value = (
-                self.value_serializer(value).encode("utf-8")
-                if not isinstance(value, bytes)
-                else value
+                self.value_serializer(value) if value is not None else None  # noqa: E501
             )
             serialized_key = (
-                self.key_serializer(key).encode("utf-8") if key is not None else None  # noqa: E501
+                self.key_serializer(key) if key is not None else None  # noqa: E501
             )
             logger.debug(f"Producer broker address: {self._producer.broker_address}")
             logger.debug("Producing message...")
