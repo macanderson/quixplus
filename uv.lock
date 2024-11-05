@@ -566,7 +566,7 @@ wheels = [
 
 [[package]]
 name = "quixplus"
-version = "0.1.10"
+version = "3.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
