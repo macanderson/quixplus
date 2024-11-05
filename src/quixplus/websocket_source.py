@@ -254,15 +254,46 @@ class WebsocketSource(BaseSource):
         try:
             print("received message " + data)
             data = json.loads(data)
+            if isinstance(data, list):
+                for d in data:
+                    if isinstance(d, dict):
+                        if self.validator(d):
+                            record_value = self.transform(d)
+                            self._process_record(record_value)
+            elif isinstance(data, dict):
+                if self.validator(data):
+                    record_value = self.transform(data)
+                    self._process_record(record_value)
+
+        except Exception as e:
+            logger.error(f"Failed to process data: {e}")
+
+        def _process_record(self, record_value: dict):
+            """
+            Process a single record value.
+
+            Args:
+                record_value (dict): The record value to process.
+            """
             # Validate message
             logger.debug("Processing message...")
             self._message_counter += 1
-            logger.debug(f"Received {self._message_counter}message: {data}")
+            logger.debug(f"Received {self._message_counter} message: {record_value}")
             if self.debug:
-                logger.debug(f"Message {self._message_counter}: {data}")
-            if not self.validator(data):
-                logger.debug("Message ignored by validator.")
-                return  # Skip processing if the message fails validation
+                logger.debug(f"Message {self._message_counter}: {record_value}")
+
+            record_timestamp: int = record_value.get(self.timestamp_field, int(time.time() * 1000))
+            record_key = ""
+            if self.key_fields:
+                for s in self.key_fields:
+                    record_key += f"{record_value.get(s)} "
+            record_key = record_key.strip()
+            logger.debug(f"Record key: {record_key}")
+            self.produce(
+                key=record_key,
+                value=record_value,
+                timestamp=record_timestamp,
+            )
 
             # Pass validated message to the transform function
             record_value = self.transform(data)
