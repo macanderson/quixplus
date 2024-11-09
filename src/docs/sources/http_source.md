@@ -22,14 +22,13 @@ The `HttpSource` is a custom polling source for Quixstreams that allows you to c
 4. **Custom Headers and Timestamp Callables**
    - Add custom Kafka headers or timestamps per message.
 
----
-
 ## Installation
 
 To use this custom source, install the necessary dependencies:
 
 ```bash
 pip install aiohttp apscheduler jsonpath-ng cachetools quixstreams
+```
 
 ## Example Usage
 
