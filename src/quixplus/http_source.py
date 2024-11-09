@@ -1,8 +1,10 @@
+from __future__ import __all__
+
 import asyncio
 from enum import StrEnum
 import json
 import logging
-from typing import Any, Callable, Dict, Optional, Union, List
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import aiohttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -187,4 +189,19 @@ class HttpSource(Source):
         """Starts polling asynchronously."""
         await self.poll_endpoint()
 
-    def run
+    def run(self):
+        """Starts polling or scheduler."""
+        if self.schedule_cron:
+            self.scheduler.start()
+            asyncio.get_event_loop().run_forever()
+        else:
+            asyncio.run(self.poll_endpoint())
+
+    def stop(self):
+        """Stops polling and scheduler."""
+        self.running = False
+        if self.scheduler.running:
+            self.scheduler.shutdown()
+        logger.info("HTTP source stopped.")
+
+__all__ = ['HttpSource']
