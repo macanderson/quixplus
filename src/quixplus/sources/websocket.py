@@ -70,7 +70,6 @@ class WebsocketSource(Source):
         self.custom_headers_func = custom_headers_func
         self.reconnect_delay = reconnect_delay
         self.debug = debug
-        self.running = False
         self.ws = None
 
     def on_open(self, ws):
@@ -105,8 +104,8 @@ class WebsocketSource(Source):
             msg = self.serialize(
                 key=key,
                 value=data,
-                timestamp=timestamp,
                 headers=headers,
+                timestamp_ms=timestamp,
             )
             self.produce(
                 key=msg.key,
@@ -130,7 +129,7 @@ class WebsocketSource(Source):
     def _attempt_reconnect(self):
         """Attempts to reconnect to the WebSocket after a delay."""
         logger.info(f"Reconnecting in {self.reconnect_delay} seconds...")
-        self.running = False
+        self._running = False
         asyncio.sleep(self.reconnect_delay)
         self.run()
 
@@ -166,7 +165,6 @@ class WebsocketSource(Source):
 
     def run(self):
         """Starts the WebSocket connection."""
-        self.running = True
         while self.running:
             try:
                 logger.info(f"Connecting to WebSocket at {self.ws_url}")
@@ -188,7 +186,7 @@ class WebsocketSource(Source):
     def stop(self):
         """Stops the WebSocket connection."""
         logger.info("Stopping WebSocket source...")
-        self.running = False
+        self._running = False
         if self.ws:
             self.ws.close()
 

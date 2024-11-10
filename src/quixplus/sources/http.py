@@ -1,4 +1,3 @@
-from __future__ import __all__
 
 import asyncio
 from enum import StrEnum
@@ -203,5 +202,6 @@ class HttpSource(Source):
         if self.scheduler.running:
             self.scheduler.shutdown()
         logger.info("HTTP source stopped.")
+
 
 __all__ = ['HttpSource']
