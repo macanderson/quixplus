@@ -1,19 +1,19 @@
 [project]
 name = "quixplus"
-version = "14.0.0"
+version = "20.0.0"
 description = "Custom sources and sinks for Quixstreams."
 readme = "README.md"
 license = "MIT"
 authors = [
     { name = "Mac Anderson", email = "mac@macanderson.com" }
 ]
-
 repository = "https://github.com/macanderson/quixplus.git"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.10.10",
     "apscheduler>=3.10.4",
     "cachetools>=5.5.0",
+    "clevercsv>=0.8.2",
     "clickhouse-connect>=0.8.6",
     "jsonpath-ng>=1.7.0",
     "kafka-python-ng>=2.2.3",
@@ -21,15 +21,16 @@ dependencies = [
     "python-json-logger>=2.0.7",
     "quixstreams>=3.1.1",
     "tomllint>=0.3.0",
+    "tornado>=6.4.1",
     "websocket-client>=1.8.0",
 ]
-
 packages = [
     { include = "quixplus", from = "src/" }
 ]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/quixplus"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-

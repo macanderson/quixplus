@@ -1,8 +1,8 @@
-
+# flake8: noqa: E501
 import asyncio
-from enum import StrEnum
 import json
 import logging
+from enum import StrEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import aiohttp
@@ -12,7 +12,6 @@ from cachetools import TTLCache
 from jsonpath_ng import parse
 from quixstreams.models import Topic
 from quixstreams.sources.base.source import Source
-
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -127,7 +126,7 @@ class HttpSource(Source):
     async def poll_endpoint(self):
         """Polls the HTTP endpoint and processes the response."""
         async with aiohttp.ClientSession() as session:
-            while self.running:
+            while self._running:
                 try:
                     headers = await self._get_auth_headers()
                     async with session.get(self.url, headers=headers) as response:
@@ -198,8 +197,8 @@ class HttpSource(Source):
 
     def stop(self):
         """Stops polling and scheduler."""
-        self.running = False
-        if self.scheduler.running:
+        self._running = False
+        if self.scheduler._running:
             self.scheduler.shutdown()
         logger.info("HTTP source stopped.")
 

@@ -1,13 +1,17 @@
+"""
+A performant and fault-tolerant WebSocket source for Quixstreams.
+"""
+# flake8: noqa: E501
 import asyncio
-from datetime import datetime
 import json
 import logging
 import threading
+import time
+from datetime import datetime
 from typing import Callable, Dict, Optional, Union
 
-from quixstreams.sources.base.source import Source
 import websocket
-
+from quixstreams.sources.base.source import Source
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -49,15 +53,15 @@ class WebsocketSource(Source):
         self,
         name: str,
         ws_url: str,
-        auth_payload: Optional[Dict]=None,
-        subscribe_payload: Optional[Dict]=None,
-        validator: Optional[Callable[[Dict], bool]]=None,
-        transform: Optional[Callable[[Dict], Dict]]=None,
-        key_func: Optional[Callable[['WebsocketSource', Dict], Dict]]=None,
-        timestamp_func: Optional[Callable[['WebsocketSource', Dict], int]]=None,
-        custom_headers_func: Optional[Callable[['WebsocketSource', Dict], Dict]]=None,
-        reconnect_delay: float=5.0,
-        debug: bool=False,
+        auth_payload: Optional[Dict] = None,
+        subscribe_payload: Optional[Dict] = None,
+        validator: Optional[Callable[[Dict], bool]] = None,
+        transform: Optional[Callable[[Dict], Dict]] = None,
+        key_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
+        timestamp_func: Optional[Callable[["WebsocketSource", Dict], int]] = None,
+        custom_headers_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
+        reconnect_delay: float = 5.0,
+        debug: bool = False,
     ):
         super().__init__(name)
         self.ws_url = ws_url
@@ -71,50 +75,82 @@ class WebsocketSource(Source):
         self.reconnect_delay = reconnect_delay
         self.debug = debug
         self.ws = None
+        self._msg_count = 0
+        self._running = True
 
     def on_open(self, ws):
         """Callback when WebSocket connection is opened."""
         logger.info("WebSocket connection opened")
         if self.auth_payload:
-            ws.send(json.dumps(self.auth_payload))
-            logger.info("Sent authentication payload")
+            auth_msg = json.dumps(self.auth_payload, indent=2, sort_keys=True)
+            logger.info(f"Sending authentication payload: {auth_msg}")
+            ws.send(auth_msg)
 
         if self.subscribe_payload:
-            ws.send(json.dumps(self.subscribe_payload))
-            logger.info("Sent subscription payload")
+            subscribe_msg = json.dumps(self.subscribe_payload, indent=2, sort_keys=True)
+            logger.info(f"Sending subscription payload: {subscribe_msg}")
+            ws.send(subscribe_msg)
+
+    def _process_message(self, data: Dict):
+        """Processes a single message."""
+
+        if self.debug:
+            logger.debug(f"Message #{self._msg_count} Received!:\n {json.dumps(data, indent=2, sort_keys=True)}")
+
+        if self.validator and not self.validator(data):
+            logger.warning(f"Message failed validation:\n {json.dumps(data, indent=2, sort_keys=True)}")
+            return
+
+        if self.transform:
+            data = self.transform(data)
+
+        key = self._generate_key(data)
+        timestamp = self._generate_timestamp(data)
+        headers = self._generate_headers(data)
+
+        if self.debug:
+            logger.debug("Transforming message...")
+            logger.debug(f"Generated key: {key}")
+            logger.debug(f"Generated timestamp: {timestamp}")
+            logger.debug(f"Generated headers: {headers}")
+            logger.debug(f"Transformed message: {json.dumps(data, indent=2, sort_keys=True)}")
+
+        msg = self.serialize(
+            key=key,
+            value=data,
+            headers=headers,
+            timestamp_ms=timestamp,
+        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Producing message: {json.dumps(msg, indent=2, sort_keys=True)}")
+
+        self.produce(
+            key=msg.key,
+            value=msg.value,
+            timestamp=msg.timestamp,
+            headers=msg.headers,
+        )
+        if self.debug:
+            logger.debug("Message produced successfully!")
 
     def on_message(self, ws, message):
         """Callback when a message is received."""
+        self._msg_count += 1
         try:
             data = json.loads(message)
             if self.debug:
                 logger.debug(f"Received message: {data}")
 
-            if self.validator and not self.validator(data):
-                logger.warning(f"Message failed validation: {data}")
-                return
-
-            if self.transform:
-                data = self.transform(data)
-
-            key = self._generate_key(data)
-            timestamp = self._generate_timestamp(data)
-            headers = self._generate_headers(data)
-
-            msg = self.serialize(
-                key=key,
-                value=data,
-                headers=headers,
-                timestamp_ms=timestamp,
-            )
-            self.produce(
-                key=msg.key,
-                value=msg.value,
-                timestamp=msg.timestamp,
-                headers=msg.headers,
-            )
+            if isinstance(data, list):
+                for msg in data:
+                    self._process_message(msg)
+            elif isinstance(data, dict):
+                self._process_message(data)
         except Exception as e:
             logger.error(f"Error processing message: {e}")
+            ws.close()
+            time.sleep(self.reconnect_delay)
+            self._attempt_reconnect()
 
     def on_error(self, ws, error):
         """Callback when an error occurs."""
@@ -130,11 +166,13 @@ class WebsocketSource(Source):
         """Attempts to reconnect to the WebSocket after a delay."""
         logger.info(f"Reconnecting in {self.reconnect_delay} seconds...")
         self._running = False
-        asyncio.sleep(self.reconnect_delay)
+        time.sleep(self.reconnect_delay)
         self.run()
 
     def _generate_key(self, data: Dict) -> Optional[Dict]:
         """Generates the key for the message using the provided key function."""
+        if self.debug:
+            logger.debug(f"Generating key for message: {data}")
         if not self.key_func:
             return None
         try:
@@ -145,6 +183,8 @@ class WebsocketSource(Source):
 
     def _generate_timestamp(self, data: Dict) -> int:
         """Generates the timestamp for the message using the provided timestamp function."""
+        if self.debug:
+            logger.debug(f"Generating timestamp for message: {data}")
         try:
             if self.timestamp_func:
                 return self.timestamp_func(self, data)
@@ -155,6 +195,8 @@ class WebsocketSource(Source):
 
     def _generate_headers(self, data: Dict) -> Dict[str, str]:
         """Generates custom headers for the message using the provided headers function."""
+        if self.debug:
+            logger.debug(f"Generating headers for message: {data}")
         if not self.custom_headers_func:
             return {}
         try:
@@ -165,7 +207,7 @@ class WebsocketSource(Source):
 
     def run(self):
         """Starts the WebSocket connection."""
-        while self.running:
+        while self._running:
             try:
                 logger.info(f"Connecting to WebSocket at {self.ws_url}")
                 self.ws = websocket.WebSocketApp(

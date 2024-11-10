@@ -33,6 +33,6 @@ from .websocket import WebsocketSource
 
 __all__ = [
     "CSVSource",
-    "HttpSource"
-    "WebsocketSource"
+    "HttpSource",
+    "WebsocketSource",
 ]
