@@ -21,7 +21,7 @@ class TornadoWebsocketSource(Source):
     """
     A source for Quixstreams that reads data from a WebSocket server using Tornado.
 
-    Args:
+    Attributes:
         name (str): The name of the source.
         url (str): The WebSocket URL to connect to.
         subscription_payloads (Optional[List[Dict]]): List of payloads to send for subscribing to channels.
@@ -34,7 +34,6 @@ class TornadoWebsocketSource(Source):
         reconnect_delay (float): Delay (in seconds) before attempting reconnection.
         shutdown_timeout (float): Time to wait for graceful shutdown.
         debug (bool): Whether to log detailed debug messages.
-
     Example Usage:
         ```python
         source = TornadoWebsocketSource(
@@ -146,7 +145,7 @@ class TornadoWebsocketSource(Source):
             timestamp_ms: int = self.timestamp_func(message) if self.timestamp_func else int(time.time() * 1000)
             logger.debug(f"Serializing message with key: {key}, value: {value}, headers: {headers}, timestamp_ms: {timestamp_ms}")
             msg = self.serialize(key=key, value=value, headers=headers, timestamp_ms=timestamp_ms)
-            self.produce(key=msg.key, value=msg.value, headers=msg.headers, timestamp==timestamp_ms)
+            self.produce(msg.key, msg.value, msg.headers, timestamp_ms)
         except Exception as e:
             logger.error(f"Error in publish: {e}", exc_info=True)
 
