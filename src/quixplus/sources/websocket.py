@@ -143,6 +143,7 @@ class WebsocketSource(Source):
         self._msg_count += 1
         try:
             data = json.loads(message)
+            print(json.dumps(data, indent=2))
             if self.debug:
                 logger.debug(f"Received message: {data}")
             if isinstance(data, list):
