@@ -114,7 +114,7 @@ class WebsocketSource(Source):
                 print(f"Transforming message: {data}")
                 data = self.transform(data)
             except TypeError as e:
-                logger.error(f"Error processing message: {e}")
+                logger.error(f"Error processing message: {e}", exc_info=True)
                 return
 
         if self.debug:
@@ -154,14 +154,14 @@ class WebsocketSource(Source):
             elif isinstance(data, dict):
                 self._process_message(data)
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            logger.error(f"Error processing message: {e}", exc_info=True)
             ws.close()
             time.sleep(self.reconnect_delay)
             self._attempt_reconnect()
 
     def on_error(self, ws, error):
         """Callback when an error occurs."""
-        logger.error(f"WebSocket error: {error}")
+        logger.error(f"WebSocket error: {error}", exc_info=True)
         self.flush()
         self._attempt_reconnect()
 
@@ -187,7 +187,7 @@ class WebsocketSource(Source):
         try:
             return self.key_func(data)
         except Exception as e:
-            logger.error(f"Error generating key: {e}")
+            logger.error(f"Error generating key: {e}", exc_info=True)
             return None
 
     def _generate_timestamp(self, data: Dict) -> int:
@@ -199,7 +199,7 @@ class WebsocketSource(Source):
                 return self.timestamp_func(data)
             return int(datetime.utcnow().timestamp() * 1000)  # Current timestamp in milliseconds
         except Exception as e:
-            logger.error(f"Error generating timestamp: {e}")
+            logger.error(f"Error generating timestamp: {e}", exc_info=True)
             return int(datetime.utcnow().timestamp() * 1000)
 
     def _generate_headers(self, data: Dict) -> Dict[str, str]:
@@ -211,7 +211,7 @@ class WebsocketSource(Source):
         try:
             return self.headers_func(data)
         except Exception as e:
-            logger.error(f"Error generating headers: {e}")
+            logger.error(f"Error generating headers: {e}", exc_info=True)
             return {}
 
     def run(self):
@@ -228,7 +228,7 @@ class WebsocketSource(Source):
                 )
                 self.ws.run_forever()
             except Exception as e:
-                logger.error(f"WebSocket connection error: {e}")
+                logger.error(f"WebSocket connection error: {e}", exc_info=True)
                 self._attempt_reconnect()
 
     def stop(self):
