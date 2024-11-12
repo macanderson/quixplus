@@ -29,7 +29,7 @@ class WebsocketSource(Source):
         transform (Optional[Callable[[dict], dict]]): Function to transform incoming messages.
         key_func (Optional[Callable[['WebsocketSource', dict], dict]]): Function to generate the key for the message.
         timestamp_func (Optional[Callable[['WebsocketSource', dict], int]]): Function to generate the timestamp for the message.
-        custom_headers_func (Optional[Callable[['WebsocketSource', dict], dict]]): Function to generate custom headers for each message.
+        headers_func (Optional[Callable[['WebsocketSource', dict], dict]]): Function to generate custom headers for each message.
         reconnect_delay (float): Delay (in seconds) before attempting reconnection.
         debug (bool): Whether to log detailed debug messages.
 
@@ -41,7 +41,7 @@ class WebsocketSource(Source):
         subscribe_payload={"type": "subscribe", "channel": "example_channel"},
         key_func=lambda self, msg: {"id": msg.get("id")},
         timestamp_func=lambda self, msg: int(msg.get("timestamp", time.time() * 1000)),
-        custom_headers_func=lambda self, msg: {"X-Custom-Header": "value"},
+        headers_func=lambda self, msg: {"X-Custom-Header": "value"},
         debug=True
     )
     app.add_source(source, topic)
@@ -59,7 +59,7 @@ class WebsocketSource(Source):
         transform: Optional[Callable[[Dict], Dict]] = None,
         key_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
         timestamp_func: Optional[Callable[["WebsocketSource", Dict], int]] = None,
-        custom_headers_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
+        headers_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
         reconnect_delay: float = 5.0,
         debug: bool = False,
     ):
@@ -71,7 +71,7 @@ class WebsocketSource(Source):
         self.transform = transform
         self.key_func = key_func
         self.timestamp_func = timestamp_func
-        self.custom_headers_func = custom_headers_func
+        self.headers_func = headers_func
         self.reconnect_delay = reconnect_delay
         self.debug = debug
         self.ws = None
@@ -176,7 +176,7 @@ class WebsocketSource(Source):
         if not self.key_func:
             return None
         try:
-            return self.key_func(self, data)
+            return self.key_func(data)
         except Exception as e:
             logger.error(f"Error generating key: {e}")
             return None
@@ -187,7 +187,7 @@ class WebsocketSource(Source):
             logger.debug(f"Generating timestamp for message: {data}")
         try:
             if self.timestamp_func:
-                return self.timestamp_func(self, data)
+                return self.timestamp_func(data)
             return int(datetime.utcnow().timestamp() * 1000)  # Current timestamp in milliseconds
         except Exception as e:
             logger.error(f"Error generating timestamp: {e}")
@@ -197,10 +197,10 @@ class WebsocketSource(Source):
         """Generates custom headers for the message using the provided headers function."""
         if self.debug:
             logger.debug(f"Generating headers for message: {data}")
-        if not self.custom_headers_func:
+        if not self.headers_func:
             return {}
         try:
-            return self.custom_headers_func(self, data)
+            return self.headers_func(data)
         except Exception as e:
             logger.error(f"Error generating headers: {e}")
             return {}

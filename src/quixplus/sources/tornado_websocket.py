@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from dotenv import load_dotenv
 from quixstreams.sources.base.source import Source
-from tornado.websocket import WebSocketClientConnection, websocket_connect
+from websocket import create_connection
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -95,33 +95,33 @@ class TornadoWebsocketSource(Source):
         while self._running:
             try:
                 logger.info("Connecting to WebSocket...")
-                ws: WebSocketClientConnection = websocket_connect(self.url)
+                ws = create_connection(self.url)
                 logger.info("Connected to WebSocket")
 
                 # Send authentication payload if available
                 if self.auth_payload:
-                    ws.write_message(json.dumps(self.auth_payload))
+                    ws.send(json.dumps(self.auth_payload))
                     logger.debug(f"Sent auth payload: {self.auth_payload}")
 
                 # Send subscription payloads if available
                 if self.subscription_payloads:
                     for payload in self.subscription_payloads:
-                        ws.write_message(json.dumps(payload))
+                        ws.send(json.dumps(payload))
                         logger.debug(f"Sent subscription payload: {payload}")
 
                 while self._running:
-                    message = ws.read_message()
-                    if message is None:
+                    message = ws.recv()
+                    if not message:
                         logger.info("No message received, the connection is closed. Attempting to reconnect...")
                         break
                     logger.debug(f"Received message: {message}")
-                    if self.validator_func(message):
-                        self.produce(message)
+                    if self.validator_func(json.loads(message)):
+                        self.produce(json.loads(message))
                     else:
                         logger.warning(f"Message validation failed: {message}")
             except Exception as e:
                 logger.error(f"Error in run: {e}", exc_info=True)
-                self._on_error(e)
+                self.on_error(e)
             finally:
                 try:
                     if ws:
@@ -145,8 +145,8 @@ class TornadoWebsocketSource(Source):
             headers: Dict = self.headers_func(message) if self.headers_func else {}
             timestamp_ms: int = self.timestamp_func(message) if self.timestamp_func else int(time.time() * 1000)
             logger.debug(f"Serializing message with key: {key}, value: {value}, headers: {headers}, timestamp_ms: {timestamp_ms}")
-            msg = self.serialize(key=key, value=value, headers=headers, timestamp=timestamp_ms)
-            self.produce(key=msg.key, value=msg.value, headers=msg.headers, timestamp_ms=timestamp_ms)
+            msg = self.serialize(key=key, value=value, headers=headers, timestamp_ms=timestamp_ms)
+            self.produce(key=msg.key, value=msg.value, headers=msg.headers, timestamp==timestamp_ms)
         except Exception as e:
             logger.error(f"Error in publish: {e}", exc_info=True)
 

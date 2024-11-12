@@ -1,6 +1,6 @@
 [project]
 name = "quixplus"
-version = "20.0.0"
+version = "21.0.0"
 description = "Custom sources and sinks for Quixstreams."
 readme = "README.md"
 license = "MIT"
