@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Callable, Dict, Optional, Union
 
 import websocket
+from pip._internal import self_outdated_check
 from quixstreams.sources.base.source import Source
 
 logger = logging.getLogger(__name__)
@@ -102,23 +103,14 @@ class WebsocketSource(Source):
         key = self._generate_key(data)
         timestamp = self._generate_timestamp(data)
         headers = self._generate_headers(data)
+        data = self._generate_value(data)
 
         if self.debug:
             logger.debug("Transforming message...")
+            logger.debug(f"Transformed message: {json.dumps(data, indent=2, sort_keys=True)}")
             logger.debug(f"Generated key: {key}")
             logger.debug(f"Generated timestamp: {timestamp}")
-            logger.debug(f"Generated headers: {headers}")
-
-        if self.transform:
-            try:
-                print(f"Transforming message: {data}")
-                data = self.transform(data)
-            except TypeError as e:
-                logger.error(f"Error processing message: {e}", exc_info=True)
-                return
-
-        if self.debug:
-            logger.debug(f"Transformed message: {json.dumps(data, indent=2, sort_keys=True)}")
+            logger.debug(f"Generated headers: {headers}"
 
         msg = self.serialize(
             key=key,
@@ -145,7 +137,6 @@ class WebsocketSource(Source):
         self._msg_count += 1
         try:
             data = json.loads(message)
-            print(json.dumps(data, indent=2))
             if self.debug:
                 logger.debug(f"Received message: {data}")
             if isinstance(data, list):
@@ -177,6 +168,18 @@ class WebsocketSource(Source):
         self._running = False
         time.sleep(self.reconnect_delay)
         self.run()
+
+    def _generate_value(self, data: Dict) -> Dict:
+        """Generates the value for the message using the provided transform function."""
+        if self.debug:
+            logger.debug(f"Generating value for message: {data}")
+        if not self.transform:
+            return data
+        try:
+            return self.transform(data)
+        except Exception as e:
+            logger.error(f"Error generating value: {e}", exc_info=True)
+            return data
 
     def _generate_key(self, data: Dict) -> Optional[Dict]:
         """Generates the key for the message using the provided key function."""
