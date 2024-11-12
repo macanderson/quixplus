@@ -16,7 +16,6 @@ from quixstreams.sources.base.source import Source
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
 class WebsocketSource(Source):
     """
     A performant and fault-tolerant WebSocket source for Quixstreams.
@@ -27,9 +26,9 @@ class WebsocketSource(Source):
         subscribe_payload (Optional[dict]): Subscription payload sent upon connection.
         validator (Optional[Callable[[dict], bool]]): Function to validate incoming messages.
         transform (Optional[Callable[[dict], dict]]): Function to transform incoming messages.
-        key_func (Optional[Callable[['WebsocketSource', dict], dict]]): Function to generate the key for the message.
-        timestamp_func (Optional[Callable[['WebsocketSource', dict], int]]): Function to generate the timestamp for the message.
-        headers_func (Optional[Callable[['WebsocketSource', dict], dict]]): Function to generate custom headers for each message.
+        key_func (Optional[Callable[[dict], dict]]): Function to generate the key for the message.
+        timestamp_func (Optional[Callable[[dict], int]]): Function to generate the timestamp for the message.
+        headers_func (Optional[Callable[[dict], dict]]): Function to generate custom headers for each message.
         reconnect_delay (float): Delay (in seconds) before attempting reconnection.
         debug (bool): Whether to log detailed debug messages.
 
@@ -39,9 +38,9 @@ class WebsocketSource(Source):
         name="my_ws_source",
         ws_url="wss://ws-feed.example.com",
         subscribe_payload={"type": "subscribe", "channel": "example_channel"},
-        key_func=lambda self, msg: {"id": msg.get("id")},
-        timestamp_func=lambda self, msg: int(msg.get("timestamp", time.time() * 1000)),
-        headers_func=lambda self, msg: {"X-Custom-Header": "value"},
+        key_func=lambda msg: {"id": msg.get("id")},
+        timestamp_func=lambda msg: int(msg.get("timestamp", time.time() * 1000)),
+        headers_func=lambda msg: {"X-Custom-Header": "value"},
         debug=True
     )
     app.add_source(source, topic)
@@ -57,9 +56,9 @@ class WebsocketSource(Source):
         subscribe_payload: Optional[Dict] = None,
         validator: Optional[Callable[[Dict], bool]] = None,
         transform: Optional[Callable[[Dict], Dict]] = None,
-        key_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
-        timestamp_func: Optional[Callable[["WebsocketSource", Dict], int]] = None,
-        headers_func: Optional[Callable[["WebsocketSource", Dict], Dict]] = None,
+        key_func: Optional[Callable[[Dict], Dict]] = None,
+        timestamp_func: Optional[Callable[[Dict], int]] = None,
+        headers_func: Optional[Callable[[Dict], Dict]] = None,
         reconnect_delay: float = 5.0,
         debug: bool = False,
     ):
@@ -102,7 +101,11 @@ class WebsocketSource(Source):
             return
 
         if self.transform:
-            data = self.transform(data)
+            try:
+                data = self.transform(data)
+            except TypeError as e:
+                logger.error(f"Error processing message: {e}")
+                return
 
         key = self._generate_key(data)
         timestamp = self._generate_timestamp(data)
@@ -121,6 +124,7 @@ class WebsocketSource(Source):
             headers=headers,
             timestamp_ms=timestamp,
         )
+
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"Producing message: {json.dumps(msg, indent=2, sort_keys=True)}")
 
@@ -130,6 +134,7 @@ class WebsocketSource(Source):
             timestamp=msg.timestamp,
             headers=msg.headers,
         )
+
         if self.debug:
             logger.debug("Message produced successfully!")
 
@@ -140,7 +145,6 @@ class WebsocketSource(Source):
             data = json.loads(message)
             if self.debug:
                 logger.debug(f"Received message: {data}")
-
             if isinstance(data, list):
                 for msg in data:
                     self._process_message(msg)
@@ -155,11 +159,13 @@ class WebsocketSource(Source):
     def on_error(self, ws, error):
         """Callback when an error occurs."""
         logger.error(f"WebSocket error: {error}")
+        self.flush()
         self._attempt_reconnect()
 
     def on_close(self, ws, close_status_code, close_msg):
         """Callback when WebSocket connection is closed."""
         logger.info(f"WebSocket connection closed: {close_status_code}, {close_msg}")
+        self.flush()
         self._attempt_reconnect()
 
     def _attempt_reconnect(self):

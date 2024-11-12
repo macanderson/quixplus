@@ -29,10 +29,12 @@ my_app.run()
 """
 from .csv import CSVSource
 from .http import HttpSource
+from .tornado_websocket import TornadoWebsocketSource
 from .websocket import WebsocketSource
 
 __all__ = [
     "CSVSource",
     "HttpSource",
     "WebsocketSource",
+    "TornadoWebsocketSource",
 ]
