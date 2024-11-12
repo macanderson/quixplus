@@ -5,7 +5,6 @@ A performant and fault-tolerant WebSocket source for Quixstreams.
 import asyncio
 import json
 import logging
-import threading
 import time
 from datetime import datetime
 from typing import Callable, Dict, Optional, Union
@@ -100,13 +99,6 @@ class WebsocketSource(Source):
             logger.warning(f"Message failed validation:\n {json.dumps(data, indent=2, sort_keys=True)}")
             return
 
-        if self.transform:
-            try:
-                data = self.transform(data)
-            except TypeError as e:
-                logger.error(f"Error processing message: {e}")
-                return
-
         key = self._generate_key(data)
         timestamp = self._generate_timestamp(data)
         headers = self._generate_headers(data)
@@ -116,6 +108,16 @@ class WebsocketSource(Source):
             logger.debug(f"Generated key: {key}")
             logger.debug(f"Generated timestamp: {timestamp}")
             logger.debug(f"Generated headers: {headers}")
+
+        if self.transform:
+            try:
+                print(f"Transforming message: {data}")
+                data = self.transform(data)
+            except TypeError as e:
+                logger.error(f"Error processing message: {e}")
+                return
+
+        if self.debug:
             logger.debug(f"Transformed message: {json.dumps(data, indent=2, sort_keys=True)}")
 
         msg = self.serialize(
@@ -224,10 +226,7 @@ class WebsocketSource(Source):
                     on_error=self.on_error,
                     on_close=self.on_close,
                 )
-                wst = threading.Thread(target=self.ws.run_forever)
-                wst.daemon = True
-                wst.start()
-                wst.join()  # Wait for the thread to terminate
+                self.ws.run_forever()
             except Exception as e:
                 logger.error(f"WebSocket connection error: {e}")
                 self._attempt_reconnect()
